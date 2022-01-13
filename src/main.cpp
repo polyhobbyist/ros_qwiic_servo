@@ -39,12 +39,12 @@ using std::placeholders::_1;
 const uint32_t kFrequencyOccilator = 25000000;
 const float kPwmFrequency = 1000.0f;
 
-// TODO: Make configurable
-const uint16_t kPulseMin = 1000; // microseconds
-const uint16_t kPulseMax = 2000; // microseconds
-const uint16_t kPulseNeutral = 1500; // microseconds
 const uint16_t kMaxThrottle = 500; // +/- microseconds 
+const uint16_t kPulseNeutral = 1500; // microseconds
+const uint16_t kPulseMin = kPulseNeutral - kMaxThrottle; // microseconds
+const uint16_t kPulseMax = kPulseNeutral + kMaxThrottle; // microseconds
 
+const uint8_t kChannels = 16;
 
 typedef enum
 {
@@ -73,11 +73,11 @@ typedef enum
 } QwiicServoMode1Value;
 
 
-class CMDVelSubscriber : public rclcpp::Node
+class ServoSubscriber : public rclcpp::Node
 {
 
   public:
-    CMDVelSubscriber()
+    ServoSubscriber()
     : Node("ros_qwiic_servo")
     {
     }
@@ -100,53 +100,32 @@ class CMDVelSubscriber : public rclcpp::Node
         reset();
         setPWMFrequency(kPwmFrequency);
 
+        for (int channel = 0; channel < kChannels; channel++)
+        {
+            std::ostringstream channelTopic;
+            channelTopic << "/servo/" << channel;
 
-        get_parameter_or<float>("wheelSeparation", _wheelSeparation, 50);
-        get_parameter_or<float>("wheelRadius", _wheelRadius, 10);
+            _subscripton[channel] = create_subscription<std_msgs::msg::Float32>(
+                channelTopic.c_str(), 1,
+                [=] (const std_msgs::msg::Float32::SharedPtr msg)
+                {
+                    // -1 , 0, 1
+                    
+                    float currentThrottle = std::abs(msg->data) * (float)kMaxThrottle;
+                    if (msg->data > 0)
+                    {
+                        writeMicroseconds(kPulseNeutral + currentThrottle);
+                    }
+                    else
+                    {
+                        writeMicroseconds(kPulseNeutral - currentThrottle);
+                    }
 
-        _subscription = this->create_subscription<geometry_msgs::msg::Twist>(
-            "cmd_vel", 10, std::bind(&CMDVelSubscriber::cmdVelCallback, this, _1));
+                });      
+        }
     }
 
   private:
-    void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg)
-    {
-
-      double angularComponent = _wheelSeparation / (2.0f * _wheelRadius);   // rads / second
-      double linearComponent = 1.0f;// _wheelRadius; // cm / second.
-
-      double speedRight = angularComponent * msg->angular.z + linearComponent * msg->linear.x;
-      double speedLeft = angularComponent * msg->angular.z - linearComponent * msg->linear.x;
-
-      motor(0, powerFromSpeed(speedRight));
-      motor(1, powerFromSpeed(speedLeft));
-    }
-
-
-    uint16_t powerFromSpeed(double speed)
-    {
-        bool reverse = speed < 0.0f;
-        double powerVal = std::abs(speed) * kMaxThrottle;
-        if (powerVal > kMaxThrottle)
-        {
-            powerVal = kMaxThrottle;
-        }
-
-        if (reverse)
-        {
-            return kPulseNeutral - powerVal;
-        }
-        else
-        {
-            return kPulseNeutral + powerVal;
-        }
-    }
-
-    void motor(uint8_t channel, uint16_t power)
-    {
-        writeMicroseconds(channel, power);
-    }
-
     void reset()
     {
         command(ServoCommand_Mode1, Mode1_Restart);
@@ -189,7 +168,7 @@ class CMDVelSubscriber : public rclcpp::Node
         int ret = i2c_ioctl_write(&_i2cDevice, 0x0, commandBuffer, 2);
         if (ret == -1 || (size_t)ret != 1)
         {
-            // error
+            RCLCPP_INFO(rclcpp::get_logger("servo"), "failed to write to servo hat: [%d]", ret);
         }
     }
 
@@ -241,10 +220,7 @@ class CMDVelSubscriber : public rclcpp::Node
         setPWM(channel, 0, pulse);
     }
 
-    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr _subscription;
-
-    float _wheelSeparation;
-    float _wheelRadius;
+    rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr _subscription[kChannels];
 
     int _i2cFileDescriptor;
     I2CDevice _i2cDevice;    
@@ -254,10 +230,7 @@ int main(int argc, char * argv[])
 {
     rclcpp::init(argc, argv);
 
-    auto node = std::make_shared<CMDVelSubscriber>();
-
-    node->declare_parameter("wheelSeparation");
-    node->declare_parameter("wheelRadius");
+    auto node = std::make_shared<ServoSubscriber>();
 
     node->start();
 
