@@ -26,6 +26,7 @@ SOFTWARE.
 #include <chrono>
 #include "rclcpp/rclcpp.hpp"
 #include <boost/asio.hpp>
+#include <std_msgs/msg/float32.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 #include "i2c/i2c.h"
 
@@ -105,8 +106,8 @@ class ServoSubscriber : public rclcpp::Node
             std::ostringstream channelTopic;
             channelTopic << "/servo/" << channel;
 
-            _subscripton[channel] = create_subscription<std_msgs::msg::Float32>(
-                channelTopic.c_str(), 1,
+            _subscription[channel] = create_subscription<std_msgs::msg::Float32>(
+                channelTopic.str(), 1,
                 [=] (const std_msgs::msg::Float32::SharedPtr msg)
                 {
                     // -1 , 0, 1
@@ -114,11 +115,11 @@ class ServoSubscriber : public rclcpp::Node
                     float currentThrottle = std::abs(msg->data) * (float)kMaxThrottle;
                     if (msg->data > 0)
                     {
-                        writeMicroseconds(kPulseNeutral + currentThrottle);
+                        writeMicroseconds(channel, kPulseNeutral + currentThrottle);
                     }
                     else
                     {
-                        writeMicroseconds(kPulseNeutral - currentThrottle);
+                        writeMicroseconds(channel, kPulseNeutral - currentThrottle);
                     }
 
                 });      

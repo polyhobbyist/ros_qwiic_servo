@@ -27,24 +27,30 @@ find_program(MAKE_EXECUTABLE
     NAMES_PER_DIR
     DOC "GNU Make")
 
+include(ExternalProject)
 ExternalProject_Add(libi2c
     GIT_REPOSITORY https://github.com/amaork/libi2c.git
     UPDATE_DISCONNECTED true
+    BUILD_IN_SOURCE true
     CONFIGURE_COMMAND ""
-    BUILD_COMMAND ${MAKE_EXECUTABLE} -j${Ncpu} -C ${_src} ${_targ}
-    INSTALL_COMMAND ${MAKE_EXECUTABLE} -j${Ncpu} -C ${_src} install prefix=${PROJECT_BINARY_DIR}
-    BUILD_BYPRODUCTS ${libi2c_LIBRARIES}  # Ninja needs this
+    BUILD_COMMAND ${MAKE_EXECUTABLE}
+    INSTALL_COMMAND ""
 )
 
-ExternalProject_Get_property(libi2c iNSTALL_DIR)
+ExternalProject_Get_property(libi2c SOURCE_DIR)
+
+message (STATUS "*** libi2c installed to ${SOURCE_DIR}")
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(Boost REQUIRED system)
 
-
+include_directories(
+  ${SOURCE_DIR}/include
+)
 add_executable(${PROJECT_NAME} src/main.cpp)
 set_target_properties(${PROJECT_NAME} PROPERTIES
   MAP_IMPORTED_CONFIG_MINSIZEREL Release
@@ -52,11 +58,12 @@ set_target_properties(${PROJECT_NAME} PROPERTIES
   )
 
 
-target_link_libraries(${PROJECT_NAME} ${INSTALL_DIR}/libi2c/libi2c.so)
+target_link_libraries(${PROJECT_NAME} ${SOURCE_DIR}/libi2c.so)
 ament_target_dependencies(${PROJECT_NAME} 
   rclcpp
   std_msgs
-  geometry_msgs)
+  geometry_msgs
+  Boost)
 
 install(TARGETS ${PROJECT_NAME}
     ARCHIVE DESTINATION lib
