@@ -32,6 +32,8 @@ SOFTWARE.
 
 #ifdef _WIN32
 #pragma optimize( "", off )
+#else
+#pragma GCC optimize ("O0")
 #endif
 
 using namespace std::chrono_literals;
@@ -85,7 +87,7 @@ class ServoSubscriber : public rclcpp::Node
 
     void start()
     {
-        if ((_i2cFileDescriptor = i2c_open("/dev/i2c-0")) == -1) 
+        if ((_i2cFileDescriptor = i2c_open("/dev/i2c-1")) == -1) 
         {
             return;
         }
@@ -96,7 +98,7 @@ class ServoSubscriber : public rclcpp::Node
         _i2cDevice.delay = 10;
         _i2cDevice.flags = 0;
         _i2cDevice.page_bytes = 8;
-        _i2cDevice.iaddr_bytes = 0;
+        _i2cDevice.iaddr_bytes = 8;
 
         reset();
         setPWMFrequency(kPwmFrequency);
@@ -104,7 +106,7 @@ class ServoSubscriber : public rclcpp::Node
         for (int channel = 0; channel < kChannels; channel++)
         {
             std::ostringstream channelTopic;
-            channelTopic << "/servo/" << channel;
+            channelTopic << "/servo/channel_" << channel;
 
             _subscription[channel] = create_subscription<std_msgs::msg::Float32>(
                 channelTopic.str(), 1,
@@ -164,9 +166,7 @@ class ServoSubscriber : public rclcpp::Node
 
     void command(QwiicServoCommand command, uint8_t value)
     {
-        uint8_t commandBuffer[] = {command, value};
-
-        int ret = i2c_ioctl_write(&_i2cDevice, 0x0, commandBuffer, 2);
+        int ret = i2c_ioctl_write(&_i2cDevice, command, &value, 1);
         if (ret == -1 || (size_t)ret != 1)
         {
             RCLCPP_INFO(rclcpp::get_logger("servo"), "failed to write to servo hat: [%d]", ret);
@@ -176,20 +176,15 @@ class ServoSubscriber : public rclcpp::Node
     uint8_t readByte(QwiicServoCommand command)
     {
         uint8_t ret = 0;
-        uint8_t commandBuffer[] = {command};
-        i2c_ioctl_write(&_i2cDevice, 0x0, commandBuffer, 1);
-        i2c_ioctl_read(&_i2cDevice, 0x0, &ret, 1);
+        i2c_ioctl_read(&_i2cDevice, command, &ret, 1);
 
         return ret;
     }
 
     uint16_t readShort(QwiicServoCommand command)
     {
-        uint8_t commandBuffer[] = {command};
-        i2c_ioctl_write(&_i2cDevice, 0x0, commandBuffer, 1);
-
         uint16_t ret = 0;
-        i2c_ioctl_read(&_i2cDevice, 0x0, &ret, sizeof(ret));
+        i2c_ioctl_read(&_i2cDevice, command, &ret, sizeof(ret));
 
         return ret;
     }
@@ -198,12 +193,11 @@ class ServoSubscriber : public rclcpp::Node
     {
         uint8_t commandBuffer[] = 
         { 
-            (uint8_t)(ServoCommand_ChannelBegin_On_Low + 4 * channel), 
             (uint8_t)on, (uint8_t)(on >> 8),
             (uint8_t)off, (uint8_t)(off >> 8)
         };
 
-        i2c_ioctl_write(&_i2cDevice, 0x0, commandBuffer, sizeof(commandBuffer));
+        i2c_ioctl_write(&_i2cDevice, ServoCommand_ChannelBegin_On_Low + 4 * channel, commandBuffer, sizeof(commandBuffer));
     }
 
     void writeMicroseconds(uint8_t channel, uint16_t microseconds)
