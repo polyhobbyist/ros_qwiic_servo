@@ -22,11 +22,18 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
+add_executable(${PROJECT_NAME} src/main.cpp)
+set_target_properties(${PROJECT_NAME} PROPERTIES
+  MAP_IMPORTED_CONFIG_MINSIZEREL Release
+  MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release
+  )
+
+
 find_program(MAKE_EXECUTABLE
     NAMES gmake mingw32-make make
     NAMES_PER_DIR
     DOC "GNU Make")
-
+if(NOT MSVC)
 include(ExternalProject)
 ExternalProject_Add(libi2c
     GIT_REPOSITORY https://github.com/amaork/libi2c.git
@@ -36,10 +43,14 @@ ExternalProject_Add(libi2c
     BUILD_COMMAND ${MAKE_EXECUTABLE}
     INSTALL_COMMAND ""
 )
-
 ExternalProject_Get_property(libi2c SOURCE_DIR)
 
 message (STATUS "*** libi2c installed to ${SOURCE_DIR}")
+target_link_libraries(${PROJECT_NAME} ${SOURCE_DIR}/libi2c.so)
+
+else()
+  message(WARNING "the servo controller is not yet supported on Windows.")
+endif()
 
 # find dependencies
 find_package(ament_cmake REQUIRED)
@@ -51,14 +62,8 @@ find_package(Boost REQUIRED system)
 include_directories(
   ${SOURCE_DIR}/include
 )
-add_executable(${PROJECT_NAME} src/main.cpp)
-set_target_properties(${PROJECT_NAME} PROPERTIES
-  MAP_IMPORTED_CONFIG_MINSIZEREL Release
-  MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release
-  )
 
 
-target_link_libraries(${PROJECT_NAME} ${SOURCE_DIR}/libi2c.so)
 ament_target_dependencies(${PROJECT_NAME} 
   rclcpp
   std_msgs

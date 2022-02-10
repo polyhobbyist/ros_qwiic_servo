@@ -28,11 +28,12 @@ SOFTWARE.
 #include <boost/asio.hpp>
 #include <std_msgs/msg/float32.hpp>
 #include <geometry_msgs/msg/twist.hpp>
-#include "i2c/i2c.h"
 
 #ifdef _WIN32
 #pragma optimize( "", off )
 #else
+#include "i2c/i2c.h"
+
 #pragma GCC optimize ("O0")
 #endif
 
@@ -87,6 +88,7 @@ class ServoSubscriber : public rclcpp::Node
 
     void start()
     {
+        #ifndef _WIN32
         if ((_i2cFileDescriptor = i2c_open("/dev/i2c-1")) == -1) 
         {
             return;
@@ -99,6 +101,7 @@ class ServoSubscriber : public rclcpp::Node
         _i2cDevice.flags = 0;
         _i2cDevice.page_bytes = 8;
         _i2cDevice.iaddr_bytes = 8;
+        #endif
 
         reset();
         setPWMFrequency(kPwmFrequency);
@@ -166,17 +169,21 @@ class ServoSubscriber : public rclcpp::Node
 
     void command(QwiicServoCommand command, uint8_t value)
     {
+        #ifndef _WIN32
         int ret = i2c_ioctl_write(&_i2cDevice, command, &value, 1);
         if (ret == -1 || (size_t)ret != 1)
         {
             RCLCPP_INFO(rclcpp::get_logger("servo"), "failed to write to servo hat: [%d]", ret);
         }
+        #endif
     }
 
     uint8_t readByte(QwiicServoCommand command)
     {
         uint8_t ret = 0;
+        #ifndef _WIN32
         i2c_ioctl_read(&_i2cDevice, command, &ret, 1);
+        #endif
 
         return ret;
     }
@@ -184,13 +191,16 @@ class ServoSubscriber : public rclcpp::Node
     uint16_t readShort(QwiicServoCommand command)
     {
         uint16_t ret = 0;
+        #ifndef _WIN32
         i2c_ioctl_read(&_i2cDevice, command, &ret, sizeof(ret));
+        #endif
 
         return ret;
     }
 
     void setPWM(uint8_t channel,  uint16_t on, uint16_t off)
     {
+        #ifndef _WIN32
         uint8_t commandBuffer[] = 
         { 
             (uint8_t)on, (uint8_t)(on >> 8),
@@ -198,6 +208,7 @@ class ServoSubscriber : public rclcpp::Node
         };
 
         i2c_ioctl_write(&_i2cDevice, ServoCommand_ChannelBegin_On_Low + 4 * channel, commandBuffer, sizeof(commandBuffer));
+        #endif
     }
 
     void writeMicroseconds(uint8_t channel, uint16_t microseconds)
@@ -217,8 +228,10 @@ class ServoSubscriber : public rclcpp::Node
 
     rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr _subscription[kChannels];
 
+    #ifndef _WIN32
     int _i2cFileDescriptor;
-    I2CDevice _i2cDevice;    
+    I2CDevice _i2cDevice;  
+    #endif  
 };
 
 int main(int argc, char * argv[])
