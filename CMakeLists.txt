@@ -22,7 +22,13 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
 endif()
 
-add_executable(${PROJECT_NAME} src/main.cpp)
+add_executable(${PROJECT_NAME} 
+  src/main.cpp
+  src/wiring_for_ros/SPI.cpp
+  src/wiring_for_ros/Wire.cpp
+  src/wiring_for_ros/Arduino.cpp
+  src/Adafruit-PWM-Servo-Driver-Library/Adafruit_PWMServoDriver.cpp
+  )
 set_target_properties(${PROJECT_NAME} PROPERTIES
   MAP_IMPORTED_CONFIG_MINSIZEREL Release
   MAP_IMPORTED_CONFIG_RELWITHDEBINFO Release
@@ -60,7 +66,10 @@ find_package(std_msgs REQUIRED)
 find_package(Boost REQUIRED system)
 
 include_directories(
+  include/${PROJECT_NAME}
   ${SOURCE_DIR}/include
+  src/wiring_for_ros/include
+  src/Adafruit-PWM-Servo-Driver-Library
 )
 
 
