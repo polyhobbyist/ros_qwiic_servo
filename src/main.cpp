@@ -62,18 +62,28 @@ const uint8_t kChannels = 16;
 
 class ServoSubscriber : public rclcpp::Node
 {
-  Adafruit_PWMServoDriver pwm;
+  Adafruit_PWMServoDriver *pPwm = NULL;
+  TwoWire *pTwoWire = NULL;
+
   public:
     ServoSubscriber()
     : Node("ros_qwiic_servo")
+    , _id(0x40)
+    , _bus("/dev/i2c-1")
     {
     }
 
     void start()
     {
-        pwm.begin();
-        pwm.setOscillatorFrequency(kFrequencyOccilator);
-        pwm.setPWMFreq(kPwmFrequency);  // Analog servos run at ~50 Hz updates
+        get_parameter_or<uint8_t>("id", _id, 0x40);
+        get_parameter_or<std::string>("bus", _bus, "/dev/i2c-1"); 
+
+        pTwoWire = new TwoWire(_bus);
+        pPwm = new Adafruit_PWMServoDriver(_id, *pTwoWire);
+
+        pPwm->begin();
+        pPwm->setOscillatorFrequency(kFrequencyOccilator);
+        pPwm->setPWMFreq(kPwmFrequency);  // Analog servos run at ~50 Hz updates
 
         for (int channel = 0; channel < kChannels; channel++)
         {
@@ -89,15 +99,24 @@ class ServoSubscriber : public rclcpp::Node
                     float currentThrottle = std::abs(msg->data) * (float)kMaxThrottle;
                     if (msg->data > 0)
                     {
-                        pwm.writeMicroseconds(channel, kPulseNeutral + currentThrottle);
+                        pPwm->writeMicroseconds(channel, kPulseNeutral + currentThrottle);
                     }
                     else
                     {
-                        pwm.writeMicroseconds(channel, kPulseNeutral - currentThrottle);
+                        pPwm->writeMicroseconds(channel, kPulseNeutral - currentThrottle);
                     }
                 });      
         }
     }
+
+    // ~Node()
+    // {
+    //     delete pPwm;
+    //     pPwm = NULL;
+
+    //     delete pTwoWire;
+    //     pTwoWire = NULL;
+    // }
 
   private:
      rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr _subscription[kChannels];
@@ -106,6 +125,9 @@ class ServoSubscriber : public rclcpp::Node
     int _i2cFileDescriptor;
     I2CDevice _i2cDevice;  
     #endif  
+
+    uint8_t _id;
+    std::string _bus;
 };
 
 int main(int argc, char * argv[])
@@ -113,6 +135,8 @@ int main(int argc, char * argv[])
     rclcpp::init(argc, argv);
 
     auto node = std::make_shared<ServoSubscriber>();
+    node->declare_parameter("id");
+    node->declare_parameter("bus");
 
     node->start();
 
