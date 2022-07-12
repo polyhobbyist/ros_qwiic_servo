@@ -62,24 +62,21 @@ const uint8_t kChannels = 16;
 
 class ServoSubscriber : public rclcpp::Node
 {
-  Adafruit_PWMServoDriver *pPwm = NULL;
-  TwoWire *pTwoWire = NULL;
-
   public:
     ServoSubscriber()
     : Node("ros_qwiic_servo")
-    , _id(0x40)
-    , _bus("/dev/i2c-1")
+    , _id(0)
+    , _bus("")
     {
     }
 
-    void start()
+    void initialize()
     {
-        get_parameter_or<uint8_t>("id", _id, 0x40);
+        get_parameter_or<uint8_t>("i2c_address", _id, 0x40);
         get_parameter_or<std::string>("bus", _bus, "/dev/i2c-1"); 
 
-        pTwoWire = new TwoWire(_bus);
-        pPwm = new Adafruit_PWMServoDriver(_id, *pTwoWire);
+        pWire = new TwoWire(_bus);
+        pPwm = new Adafruit_PWMServoDriver(_id, *pWire);
 
         pPwm->begin();
         pPwm->setOscillatorFrequency(kFrequencyOccilator);
@@ -128,6 +125,9 @@ class ServoSubscriber : public rclcpp::Node
 
     uint8_t _id;
     std::string _bus;
+
+    Adafruit_PWMServoDriver *pPwm = NULL;
+    TwoWire *pWire = NULL;
 };
 
 int main(int argc, char * argv[])
@@ -135,10 +135,10 @@ int main(int argc, char * argv[])
     rclcpp::init(argc, argv);
 
     auto node = std::make_shared<ServoSubscriber>();
-    node->declare_parameter("id");
+    node->declare_parameter("i2c_address");
     node->declare_parameter("bus");
 
-    node->start();
+    node->initialize();
 
     rclcpp::spin(node);
     rclcpp::shutdown();
