@@ -10,5 +10,9 @@ def generate_launch_description():
             package='ros_qwiic_servo',
             executable='ros_qwiic_servo',
             name='ros_qwiic_servo',
-            output='screen'),
+            output='screen',
+            parameters=[
+                {'bus': '/dev/i2c-8'},
+            ]
+        ),
     ])

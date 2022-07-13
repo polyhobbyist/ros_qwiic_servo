@@ -29,14 +29,6 @@ SOFTWARE.
 #include <std_msgs/msg/float32.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 
-#ifdef _WIN32
-#pragma optimize( "", off )
-#else
-#include "i2c/i2c.h"
-
-#pragma GCC optimize ("O0")
-#endif
-
 #include "Adafruit_PWMServoDriver.h"
 
 
@@ -62,18 +54,24 @@ const uint8_t kChannels = 16;
 
 class ServoSubscriber : public rclcpp::Node
 {
-  Adafruit_PWMServoDriver pwm;
   public:
     ServoSubscriber()
     : Node("ros_qwiic_servo")
+    , _id(0)
+    , _bus("")
     {
     }
 
-    void start()
+    void initialize()
     {
-        pwm.begin();
-        pwm.setOscillatorFrequency(kFrequencyOccilator);
-        pwm.setPWMFreq(kPwmFrequency);  // Analog servos run at ~50 Hz updates
+        get_parameter_or<uint8_t>("i2c_address", _id, 0x40);
+        get_parameter_or<std::string>("bus", _bus, "/dev/i2c-1"); 
+
+        pPwm = new Adafruit_PWMServoDriver(_id, _bus);
+
+        pPwm->begin();
+        pPwm->setOscillatorFrequency(kFrequencyOccilator);
+        pPwm->setPWMFreq(kPwmFrequency);  // Analog servos run at ~50 Hz updates
 
         for (int channel = 0; channel < kChannels; channel++)
         {
@@ -89,11 +87,11 @@ class ServoSubscriber : public rclcpp::Node
                     float currentThrottle = std::abs(msg->data) * (float)kMaxThrottle;
                     if (msg->data > 0)
                     {
-                        pwm.writeMicroseconds(channel, kPulseNeutral + currentThrottle);
+                        pPwm->writeMicroseconds(channel, kPulseNeutral + currentThrottle);
                     }
                     else
                     {
-                        pwm.writeMicroseconds(channel, kPulseNeutral - currentThrottle);
+                        pPwm->writeMicroseconds(channel, kPulseNeutral - currentThrottle);
                     }
                 });      
         }
@@ -106,6 +104,11 @@ class ServoSubscriber : public rclcpp::Node
     int _i2cFileDescriptor;
     I2CDevice _i2cDevice;  
     #endif  
+
+    uint8_t _id;
+    std::string _bus;
+
+    Adafruit_PWMServoDriver *pPwm = NULL;
 };
 
 int main(int argc, char * argv[])
@@ -113,8 +116,10 @@ int main(int argc, char * argv[])
     rclcpp::init(argc, argv);
 
     auto node = std::make_shared<ServoSubscriber>();
+    node->declare_parameter("i2c_address");
+    node->declare_parameter("bus");
 
-    node->start();
+    node->initialize();
 
     rclcpp::spin(node);
     rclcpp::shutdown();

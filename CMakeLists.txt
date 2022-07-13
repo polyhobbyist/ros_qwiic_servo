@@ -19,7 +19,8 @@ if(MSVC)
 endif()
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
-  add_compile_options(-Wall -Wextra -Wpedantic)
+  # Arduino code can have unused parameters
+  add_compile_options(-Wall -Wextra -Wno-unused-parameter)
 endif()
 
 add_executable(${PROJECT_NAME} 

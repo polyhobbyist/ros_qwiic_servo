@@ -3,7 +3,7 @@
 <package format="3">
   <name>ros_qwiic_servo</name>
   <version>0.0.0</version>
-  <description>ROS2 package for Sparkfun PWM Qwiic</description>
+  <description>ROS2 package for Sparkfun PWM Qwiic Servo Controller</description>
   <maintainer email="lou@polyhobbyist.com">Lou Amadio</maintainer>
   <license>MIT</license>
 
