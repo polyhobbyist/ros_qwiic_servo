@@ -1,6 +1,6 @@
-[submodule "src/Adafruit-PWM-Servo-Driver-Library"]
-	path = src/Adafruit-PWM-Servo-Driver-Library
-	url = https://github.com/adafruit/Adafruit-PWM-Servo-Driver-Library
 [submodule "src/wiring_for_ros"]
 	path = src/wiring_for_ros
-	url = https://github.com/polyhobbyist/wiring_for_ros
+	url = https://github.com/joncamp/wiring_for_ros
+[submodule "src/Adafruit-PWM-Servo-Driver-Library"]
+	path = src/Adafruit-PWM-Servo-Driver-Library
+	url = https://github.com/joncamp/Adafruit-PWM-Servo-Driver-Library

@@ -29,14 +29,6 @@ SOFTWARE.
 #include <std_msgs/msg/float32.hpp>
 #include <geometry_msgs/msg/twist.hpp>
 
-#ifdef _WIN32
-#pragma optimize( "", off )
-#else
-#include "i2c/i2c.h"
-
-#pragma GCC optimize ("O0")
-#endif
-
 #include "Adafruit_PWMServoDriver.h"
 
 
@@ -75,8 +67,7 @@ class ServoSubscriber : public rclcpp::Node
         get_parameter_or<uint8_t>("i2c_address", _id, 0x40);
         get_parameter_or<std::string>("bus", _bus, "/dev/i2c-1"); 
 
-        pWire = new TwoWire(_bus);
-        pPwm = new Adafruit_PWMServoDriver(_id, *pWire);
+        pPwm = new Adafruit_PWMServoDriver(_id, _bus);
 
         pPwm->begin();
         pPwm->setOscillatorFrequency(kFrequencyOccilator);
@@ -106,15 +97,6 @@ class ServoSubscriber : public rclcpp::Node
         }
     }
 
-    // ~Node()
-    // {
-    //     delete pPwm;
-    //     pPwm = NULL;
-
-    //     delete pTwoWire;
-    //     pTwoWire = NULL;
-    // }
-
   private:
      rclcpp::Subscription<std_msgs::msg::Float32>::SharedPtr _subscription[kChannels];
 
@@ -127,7 +109,6 @@ class ServoSubscriber : public rclcpp::Node
     std::string _bus;
 
     Adafruit_PWMServoDriver *pPwm = NULL;
-    TwoWire *pWire = NULL;
 };
 
 int main(int argc, char * argv[])
